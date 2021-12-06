@@ -1,0 +1,55 @@
+version: '3'
+volumes:
+  mysql_data:
+      driver: local
+services:
+  mysql:
+      image: mysql:latest
+      container_name: mysql
+      volumes:
+        - mysql_data:/var/lib/mysql
+      environment:
+        MYSQL_ROOT_PASSWORD: root
+        MYSQL_DATABASE: keycloak
+        MYSQL_USER: { user }
+        MYSQL_PASSWORD: { password }
+      ports:
+        - "3309:3306"
+  keycloak:
+      image: quay.io/keycloak/keycloak:latest 
+      container_name: keycloak
+      environment:
+        DB_VENDOR: MYSQL
+        DB_ADDR: mysql
+        DB_DATABASE: keycloak
+        DB_USER: keycloak
+        DB_PASSWORD: { password }
+        KEYCLOAK_USER: admin
+        KEYCLOAK_PASSWORD: { admin-password }
+        PROXY_ADDRESS_FORWARDING: "true"
+        REDIRECT_SOCKET: "proxy-https"
+        KEYCLOAK_FRONTEND_URL: https://{domain-server}
+      ports:
+        - "8080:8080"
+      depends_on:
+        - mysql
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./data/nginx:/etc/nginx/conf.d
+      - ./data/certbot/conf:/etc/letsencrypt
+      - ./data/certbot/www:/var/www/certbot
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - ./data/certbot/conf:/etc/letsencrypt
+      - ./data/certbot/www:/var/www/certbot
+# Networks to be created to facilitate communication between containers
+networks:
+  default:
+    external:
+      name: keycloak-network
